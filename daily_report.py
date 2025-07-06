@@ -10,7 +10,6 @@ ADO_CHANGED_BY = os.environ["ADO_CHANGED_BY"]
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-# --- إعدادات الاتصال ---
 AUTH = HTTPBasicAuth("", ADO_PAT)
 HEADERS = {"Content-Type": "application/json"}
 BASE_URL = f"https://dev.azure.com/{ADO_ORG}"
@@ -20,10 +19,11 @@ final_tasks = []
 
 # --- Step 1: Get All Projects ---
 projects_url = f"{BASE_URL}/_apis/projects?api-version=6.0"
-projects_res = requests.get(projects_url, auth=AUTH).json()
+projects_raw = requests.get(projects_url, auth=AUTH)
+projects_res = projects_raw.json()
 projects = [p["name"] for p in projects_res.get("value", [])]
 
-# --- Step 2: Loop through projects and fetch your changed tasks ---
+# --- Step 2: Loop through projects and fetch changed tasks ---
 for project in projects:
     wiql_query = {
         "query": f"""
@@ -43,8 +43,7 @@ for project in projects:
         workitem_url = f"{BASE_URL}/_apis/wit/workitems/{wid}?api-version=6.0"
         wi = requests.get(workitem_url, auth=AUTH).json()
         title = wi["fields"].get("System.Title", "")
-        state = wi["fields"].get("System.State", "")
-        final_tasks.append(f"- #{wid} {title} → {state} ({project})")
+        final_tasks.append(f"- #{wid} | {title} | {project}")
 
 # --- Step 3: Send Telegram Message ---
 if final_tasks:

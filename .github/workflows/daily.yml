@@ -1,0 +1,28 @@
+name: Daily ADO Report to Telegram
+
+on:
+  schedule:
+    - cron: '0 18 * * *'  # Every day at 8 PM Cairo time (UTC+2)
+  workflow_dispatch:  # Allow manual run
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run script
+        env:
+          ADO_ORG: sahl-solution
+          ADO_PAT: ${{ secrets.ADO_PAT }}
+          ADO_CHANGED_BY: a.shabaaen@sahlsolution.com
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python daily_report.py

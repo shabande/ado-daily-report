@@ -44,7 +44,8 @@ AND [System.ChangedBy] = '{ADO_CHANGED_BY}'
         workitem_url = f"{BASE_URL}/_apis/wit/workitems/{wid}?api-version=6.0"
         wi = requests.get(workitem_url, auth=AUTH).json()
         title = wi["fields"].get("System.Title", "")
-        raw_tasks.append((wid, title, project))
+        project_name = wi["fields"].get("System.TeamProject", project)  # ← ده التعديل المهم
+        raw_tasks.append((wid, title, project_name))
 
 # Step 3: Format unique tasks
 seen = set()

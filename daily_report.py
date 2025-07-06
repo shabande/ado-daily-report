@@ -1,28 +1,21 @@
-name: Daily ADO Report to Telegram
+import os
+import requests
+from datetime import datetime
+from requests.auth import HTTPBasicAuth
 
-on:
-  schedule:
-    - cron: '0 18 * * *'  # الساعة 8 مساءً بتوقيت مصر (UTC+2 → UTC=18)
-  workflow_dispatch:
+# --- بياناتك من GitHub Secrets ---
+ADO_ORG = os.environ["ADO_ORG"]
+PAT = os.environ["ADO_PAT"]
+ADO_CHANGED_BY = os.environ["ADO_CHANGED_BY"]
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-jobs:
-  run-script:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.x
+AUTH = HTTPBasicAuth("", PAT)
+HEADERS = {"Content-Type": "application/json"}
+BASE_URL = f"https://dev.azure.com/{ADO_ORG}"
 
-      - name: Install Requests
-        run: pip install requests
+today = datetime.now().strftime("%Y-%m-%d")
+final_tasks = []
 
-      - name: Run Script
-        env:
-          ADO_ORG: sahl-solution
-          ADO_PAT: ${{ secrets.ADO_PAT }}
-          ADO_CHANGED_BY: a.shabaaen@sahlsolution.com
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python daily_report.py
+# باقي السكربت كما هو (نفس الكود السابق)
+...

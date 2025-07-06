@@ -15,12 +15,11 @@ HEADERS = {"Content-Type": "application/json"}
 BASE_URL = f"https://dev.azure.com/{ADO_ORG}"
 today = datetime.now().strftime("%Y-%m-%d")
 
-final_tasks = []
+raw_tasks = []
 
 # --- Step 1: Get All Projects ---
 projects_url = f"{BASE_URL}/_apis/projects?api-version=6.0"
-projects_raw = requests.get(projects_url, auth=AUTH)
-projects_res = projects_raw.json()
+projects_res = requests.get(projects_url, auth=AUTH).json()
 projects = [p["name"] for p in projects_res.get("value", [])]
 
 # --- Step 2: Loop through projects and fetch changed tasks ---
@@ -43,11 +42,19 @@ for project in projects:
         workitem_url = f"{BASE_URL}/_apis/wit/workitems/{wid}?api-version=6.0"
         wi = requests.get(workitem_url, auth=AUTH).json()
         title = wi["fields"].get("System.Title", "")
-        final_tasks.append(f"- #{wid} | {title} | {project}")
+        raw_tasks.append((wid, title, project))
 
-# --- Step 3: Send Telegram Message ---
-if final_tasks:
-    message = f"✅ Task Updates by you for {today}:\n" + "\n".join(final_tasks)
+# --- Step 3: Remove Duplicates (by task ID) ---
+seen_ids = set()
+unique_tasks = []
+for tid, title, project in raw_tasks:
+    if tid not in seen_ids:
+        seen_ids.add(tid)
+        unique_tasks.append(f"- #{tid} | {title} | {project}")
+
+# --- Step 4: Send Telegram Message ---
+if unique_tasks:
+    message = f"✅ Task Updates by you for {today}:\n" + "\n".join(unique_tasks)
 else:
     message = f"ℹ️ لا توجد تاسكات انت عدلت حالتها النهاردة ({today})."
 

@@ -2,8 +2,8 @@ name: Daily ADO Report to Telegram
 
 on:
   schedule:
-    - cron: '0 18 * * *'  # Every day at 8 PM Cairo time (UTC+2)
-  workflow_dispatch:  # Allow manual run
+    - cron: '0 18 * * *'  # الساعة 8 مساءً بتوقيت القاهرة
+  workflow_dispatch:  # لتشغيل يدوي لو حبيت
 
 jobs:
   run-script:

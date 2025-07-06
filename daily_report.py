@@ -1,66 +1,60 @@
+
 import os
 import requests
 from datetime import datetime
-from requests.auth import HTTPBasicAuth
 
-# --- بيانات من GitHub Secrets ---
-ADO_ORG = os.environ["ADO_ORG"]
-ADO_PAT = os.environ["ADO_PAT"]
-ADO_CHANGED_BY = os.environ["ADO_CHANGED_BY"]
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+ADO_PAT = os.getenv("ADO_PAT")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-AUTH = HTTPBasicAuth("", ADO_PAT)
+if not all([ADO_PAT, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
+    raise Exception("Missing required environment variables")
+
+ORG = "sahl-solution"
+AUTH = ("", ADO_PAT)
 HEADERS = {"Content-Type": "application/json"}
-BASE_URL = f"https://dev.azure.com/{ADO_ORG}"
-today = datetime.now().strftime("%Y-%m-%d")
 
-raw_tasks = []
+today = datetime.now().date().isoformat()
+url = f"https://dev.azure.com/{ORG}/_apis/wit/wiql?api-version=6.0"
 
-# --- Step 1: Get All Projects ---
-projects_url = f"{BASE_URL}/_apis/projects?api-version=6.0"
-projects_res = requests.get(projects_url, auth=AUTH).json()
-projects = [p["name"] for p in projects_res.get("value", [])]
+query = {
+    "query": f'''
+    SELECT [System.Id], [System.Title], [System.State], [System.ChangedDate], [System.TeamProject]
+    FROM WorkItems
+    WHERE
+        [System.ChangedDate] >= '{today}T00:00:00.0000000Z'
+        AND [System.ChangedDate] <= '{today}T23:59:59.0000000Z'
+        AND [System.ChangedBy] CONTAINS 'shaaban'
+    ORDER BY [System.ChangedDate] DESC
+    '''
+}
 
-# --- Step 2: Loop through projects and fetch changed tasks ---
-for project in projects:
-    wiql_query = {
-        "query": f"""
-        SELECT [System.Id]
-        FROM WorkItems
-        WHERE [System.ChangedDate] >= '{today}T00:00:00Z'
-        AND [System.ChangedBy] = '{ADO_CHANGED_BY}'
-        AND ([System.State] = 'Done' OR [System.State] = 'Rejected' OR [System.State] = 'Resolved')
-        """
-    }
+res = requests.post(url, auth=AUTH, headers=HEADERS, json=query)
+res.raise_for_status()
+work_items = res.json().get("workItems", [])
 
-    wiql_url = f"{BASE_URL}/{project}/_apis/wit/wiql?api-version=6.0"
-    wiql_res = requests.post(wiql_url, json=wiql_query, auth=AUTH, headers=HEADERS).json()
-    ids = [item["id"] for item in wiql_res.get("workItems", [])]
+result_lines = []
 
-    for wid in ids:
-        workitem_url = f"{BASE_URL}/_apis/wit/workitems/{wid}?api-version=6.0"
-        wi = requests.get(workitem_url, auth=AUTH).json()
-        title = wi["fields"].get("System.Title", "")
-        actual_project = wi["fields"].get("System.TeamProject", "")
-        raw_tasks.append((wid, title, actual_project))
-
-# --- Step 3: Remove Duplicates (by task ID) ---
-seen_ids = set()
-unique_tasks = []
-for tid, title, project in raw_tasks:
-    if tid not in seen_ids:
-        seen_ids.add(tid)
-        unique_tasks.append(f"✅#{tid} | {title} | {project}")
-
-# --- Step 4: Send Telegram Message ---
-if unique_tasks:
-    message = "\n".join(unique_tasks)
+if not work_items:
+    result_lines.append(f"ℹ️ لا توجد تاسكات انت عدلت حالتها النهاردة ({today}).")
 else:
-    message = f"ℹ️ لا توجد تاسكات انت عدلت حالتها النهاردة ({today})."
+    ids = [str(item["id"]) for item in work_items]
+    ids_url = f"https://dev.azure.com/{ORG}/_apis/wit/workitemsbatch?api-version=6.0"
+    body = {
+        "ids": ids,
+        "fields": ["System.Id", "System.Title", "System.TeamProject"]
+    }
+    details = requests.post(ids_url, auth=AUTH, headers=HEADERS, json=body).json()
+    for item in details["value"]:
+        task_id = item["fields"]["System.Id"]
+        title = item["fields"]["System.Title"]
+        project = item["fields"]["System.TeamProject"]
+        result_lines.append(f"✅#{task_id} | {title} | {project}")
 
-telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-requests.post(telegram_url, json={
+message = "\n".join(result_lines)
+send_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+send_data = {
     "chat_id": TELEGRAM_CHAT_ID,
     "text": message
-})
+}
+requests.post(send_url, data=send_data)

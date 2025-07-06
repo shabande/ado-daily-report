@@ -31,7 +31,6 @@ SELECT [System.Id], [System.Title], [System.State]
 FROM WorkItems
 WHERE [System.ChangedDate] >= '{today}T00:00:00Z'
 AND [System.ChangedBy] = '{ADO_CHANGED_BY}'
-AND ([System.State] = 'Done' OR [System.State] = 'Rejected' OR [System.State] = 'Resolved')
 """
     }
 
@@ -60,7 +59,7 @@ for task in raw_tasks:
 if unique_tasks:
     message = "\n".join(unique_tasks)
 else:
-    message = f"ℹ️ لا توجد تاسكات انت عدلت حالتها النهاردة ({today})."
+    message = f"ℹ️ لا توجد تاسكات انت عدلتها النهاردة ({today})."
 
 telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 requests.post(telegram_url, json={

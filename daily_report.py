@@ -26,7 +26,7 @@ projects = [p["name"] for p in projects_res.get("value", [])]
 for project in projects:
     wiql_query = {
         "query": f"""
-        SELECT [System.Id], [System.Title], [System.State]
+        SELECT [System.Id]
         FROM WorkItems
         WHERE [System.ChangedDate] >= '{today}T00:00:00Z'
         AND [System.ChangedBy] = '{ADO_CHANGED_BY}'
@@ -42,7 +42,8 @@ for project in projects:
         workitem_url = f"{BASE_URL}/_apis/wit/workitems/{wid}?api-version=6.0"
         wi = requests.get(workitem_url, auth=AUTH).json()
         title = wi["fields"].get("System.Title", "")
-        raw_tasks.append((wid, title, project))
+        actual_project = wi["fields"].get("System.TeamProject", "")
+        raw_tasks.append((wid, title, actual_project))
 
 # --- Step 3: Remove Duplicates (by task ID) ---
 seen_ids = set()
@@ -50,11 +51,11 @@ unique_tasks = []
 for tid, title, project in raw_tasks:
     if tid not in seen_ids:
         seen_ids.add(tid)
-        unique_tasks.append(f"- #{tid} | {title} | {project}")
+        unique_tasks.append(f"✅#{tid} | {title} | {project}")
 
 # --- Step 4: Send Telegram Message ---
 if unique_tasks:
-    message = f"✅ Task Updates by you for {today}:\n" + "\n".join(unique_tasks)
+    message = "\n".join(unique_tasks)
 else:
     message = f"ℹ️ لا توجد تاسكات انت عدلت حالتها النهاردة ({today})."
 
